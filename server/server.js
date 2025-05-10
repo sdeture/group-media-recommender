@@ -1,3 +1,47 @@
+// OpenTelemetry Initialization for Arize Phoenix
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const { diag, DiagConsoleLogger, DiagLogLevel } = require('@opentelemetry/api');
+
+// Optional: For troubleshooting, uncomment the line below to see OTel diagnostic logs
+// diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
+
+const traceExporter = new OTLPTraceExporter({
+  // url: process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT || 'http://localhost:4318/v1/traces',
+  // By default, Phoenix collector runs on http://localhost:4318/v1/traces
+  // You can override this with OTEL_EXPORTER_OTLP_TRACES_ENDPOINT environment variable if needed.
+});
+
+const sdk = new NodeSDK({
+  traceExporter,
+  instrumentations: [getNodeAutoInstrumentations({
+    // Example: disable fs instrumentation if it's too noisy for your use case
+    // '@opentelemetry/instrumentation-fs': {
+    //   enabled: false,
+    // },
+  })],
+  // You can add a resource here to define service.name, service.version, etc.
+  // resource: new Resource({
+  //   [SemanticResourceAttributes.SERVICE_NAME]: 'media-recommender-backend',
+  // }),
+});
+
+try {
+  sdk.start();
+  console.log('OpenTelemetry SDK started successfully.');
+} catch (error) {
+  console.error('Error starting OpenTelemetry SDK:', error);
+}
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  sdk.shutdown()
+    .then(() => console.log('OpenTelemetry SDK shut down successfully.'))
+    .catch((error) => console.error('Error shutting down OpenTelemetry SDK:', error))
+    .finally(() => process.exit(0));
+});
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -21,12 +65,19 @@ app.post('/api/recommendations', async (req, res) => {
   try {
     const { users, preferences } = req.body;
     
+    // DEBUG: Log received data
+    console.log('Received users data in backend:', JSON.stringify(users, null, 2));
+    console.log('Received preferences data in backend:', JSON.stringify(preferences, null, 2));
+
     if (!users || users.length === 0) {
       return res.status(400).json({ error: 'User data is required' });
     }
 
     // Format the input for OpenAI
     const prompt = generatePrompt(users, preferences);
+    
+    // DEBUG: Log the generated prompt
+    console.log('Generated prompt for OpenAI:', prompt);
     
     console.log('Sending request to OpenAI o3 model...');
     
@@ -65,23 +116,32 @@ function generatePrompt(users, preferences) {
   
   let groupPrefs = `
 Group Preferences:
+- Common interests: ${preferences.commonInterests || 'Not specified'}
 - Media interests: ${preferences.mediaInterests || 'Not specified'}
-- Media to avoid: ${preferences.mediaAvoid || 'Not specified'}
-- Mood/theme: ${preferences.moodTheme || 'Not specified'}
-- Additional comments: ${preferences.additionalComments || 'Not specified'}`;
+- Media to avoid: ${preferences.mediaToAvoid || 'Not specified'}
+- Desired vibe/mood: ${preferences.vibe || 'Not specified'}`;
 
-  return `Based on the following user profiles and group preferences, provide 5 specific media recommendations (movies, TV shows, documentaries, YouTube channels, music, etc.) that would be enjoyable for the entire group to consume together.
+  return `You are a media recommendation expert tasked with finding perfect content for a group to enjoy together.
+
+Approach this task in two stages:
+
+STAGE 1: ANALYZE EACH USER'S PREFERENCES
+For each user below, create a brief summary of their likely media preferences based on their provided information. Focus on genres, themes, and formats they might enjoy. Create this summary even if they provided minimal information. Try to extract meaningful insights from whatever information is available.
 
 ${userProfiles}
 
+STAGE 2: GENERATE GROUP RECOMMENDATIONS
+Based on your analysis of each individual user AND considering that EVERY USER SHOULD BE WEIGHTED EQUALLY (regardless of how much information they provided), generate 5 specific media recommendations that would be enjoyable for the entire group to consume together. Pay special attention to finding content that has broad appeal across potentially diverse tastes.
+
+Also consider these group preferences:
 ${groupPrefs}
 
 For each recommendation, provide:
 1. Title
-2. Brief description explaining why it's a good fit for this group
-3. Type of media (movie, TV show, etc.)
+2. Brief description explaining why it's a good fit for this specific group (referencing individual user preferences where relevant)
+3. Type of media (movie, TV show, YouTube channel, etc.)
 
-Format your response as a list of recommendations, with each recommendation including these three components.`;
+Format your response as a list of recommendations, with each recommendation including these three components. Make sure the recommendations are specific and varied enough to appeal to everyone in the group.`;
 }
 
 // Helper function to parse OpenAI's response
