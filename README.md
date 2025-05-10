@@ -1,6 +1,50 @@
-# Getting Started with Create React App
+# Group Media Recommender
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A web application that generates personalized media recommendations for groups based on individual user preferences and consumption history. This app leverages OpenAI's o3 model to analyze multiple users' media history and preferences to suggest content everyone can enjoy together.
+
+## Features
+
+- Input media preferences for 2-5 users
+- Collect Spotify, YouTube, and Netflix history
+- Specify group preferences and mood/themes
+- Generate AI-powered recommendations using OpenAI's o3 model
+- Beautiful, responsive UI built with React and Bootstrap
+
+## Setup and Installation
+
+### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- OpenAI API key with access to the o3 model
+
+### Installation
+
+1. Clone the repository
+2. Install frontend dependencies:
+   ```
+   cd media-recommender
+   npm install
+   ```
+3. Install backend dependencies:
+   ```
+   cd server
+   npm install
+   ```
+4. Create a `.env` file in the server directory based on `.env.example` and add your OpenAI API key
+
+## Running the Application
+
+### Start the backend server
+```
+cd server
+npm start
+```
+
+### Start the frontend development server
+```
+# In the project root directory
+npm start
+```
 
 ## Available Scripts
 
