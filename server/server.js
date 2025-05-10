@@ -32,22 +32,15 @@ app.post('/api/recommendations', async (req, res) => {
     
     // Make request to OpenAI o3 model
     const response = await openai.chat.completions.create({
-      model: "o3",  // Using o3 model as specified
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful assistant that specializes in providing personalized media recommendations based on users' preferences and history."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_completion_tokens: 2000
+      model: "o3",
+      messages: [{ role: "user", content: prompt }],
+      // max_tokens: 1000, // Optional: can be added if needed for response length control
     });
     
+    console.log('Response from OpenAI:', JSON.stringify(response, null, 2));
+    
     // Parse OpenAI's response to extract recommendations
+    // The o3 model might return the response in a format similar to other chat completion models
     const recommendations = parseRecommendations(response.choices[0].message.content);
     
     res.json({ recommendations });
